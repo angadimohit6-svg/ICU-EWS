@@ -48,6 +48,21 @@ def test_saved_probabilities_match_model_predictions(model_bundle):
         assert np.allclose(expected, model_bundle["proba"][name], atol=1e-6)
 
 
+def test_preprocessing_is_refitted_from_the_training_matrix(model_bundle):
+    """Preprocessors are rebuilt at load so artifacts survive scikit-learn upgrades."""
+    X_train = model_bundle["X_train"]
+    medians = X_train.median().to_numpy()
+    for name, model in model_bundle["models"].items():
+        if not hasattr(model, "named_steps"):
+            continue
+        imputer = model.named_steps["impute"]
+        assert np.allclose(imputer.statistics_, medians)
+        if "scale" in model.named_steps:
+            scaler = model.named_steps["scale"]
+            assert scaler.mean_.shape == (X_train.shape[1],)
+            assert np.all(scaler.scale_ > 0)
+
+
 def test_primary_threshold_comes_from_out_of_fold_youden(model_bundle):
     thresholds = model_bundle["thresholds"]
     cv = model_bundle["cv"][PRIMARY]

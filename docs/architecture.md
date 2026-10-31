@@ -49,7 +49,9 @@ created on first acknowledgement and removed when the workflow is cleared.
 - `ml/features.py` defines the canonical 47-feature vector (`FEATURE_COLUMNS`) and metadata used for labels,
   units and grouping across the dashboard.
 - `ml/artifacts.py` is the only module that reads or writes bundle files. It stores three Parquet frames,
-  a joblib model bundle and JSON metadata in `artifacts/bundles/<slug>/`.
+  a joblib model bundle and JSON metadata in `artifacts/bundles/<slug>/`. On load it refits the imputer and
+  scaler with the installed scikit-learn version from the stored training matrix, so bundles trained under an
+  older scikit-learn remain usable after a dependency upgrade; the trained estimators are not altered.
 
 ## Leakage controls
 

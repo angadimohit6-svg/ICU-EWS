@@ -109,6 +109,11 @@ The command regenerates the cohort, validates the schema, retrains all three mod
 and held-out metrics, fits the explainability inputs and rewrites the artifact bundle. Evaluation numbers in the
 dashboard are read from that bundle and are recomputed from saved probabilities at runtime.
 
+The published bundle was trained with Python 3.13.9, scikit-learn 1.7.2, NumPy 2.3.5, pandas 2.3.3,
+XGBoost 3.4.1 and SHAP 0.54.1. When loaded under a different scikit-learn release, the imputer and scaler are
+refitted from the stored training matrix so predictions and SHAP values remain identical; the trained estimators
+themselves are used exactly as saved.
+
 ## Citation
 
 If you reference this prototype, describe it as a research demonstration built on a synthetic cohort; do not cite

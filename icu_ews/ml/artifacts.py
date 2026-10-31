@@ -7,6 +7,9 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from ..config import BUNDLE_DIR
 
@@ -72,8 +75,43 @@ def load_frames(slug: str) -> dict[str, pd.DataFrame]:
     return frames
 
 
+def _refresh_preprocessing(model_bundle: dict) -> None:
+    """Rebuild imputers/scalers with the installed scikit-learn version.
+
+    Pickled preprocessing steps from an older scikit-learn can lack private
+    attributes that newer releases read in ``transform`` (e.g. SimpleImputer's
+    ``_fill_dtype``). Their fitted state is fully determined by ``X_train``, so
+    refitting fresh steps reproduces the same statistics while the trained
+    estimators are kept exactly as saved.
+    """
+    X_train = model_bundle.get("X_train")
+    if X_train is None:
+        return
+    for name, model in model_bundle.get("models", {}).items():
+        if not isinstance(model, Pipeline):
+            continue
+        *preprocess_steps, final_step = model.steps
+        data = X_train
+        rebuilt: list[tuple[str, object]] = []
+        for step_name, step in preprocess_steps:
+            if isinstance(step, SimpleImputer):
+                fresh = SimpleImputer(**step.get_params(deep=False))
+            elif isinstance(step, StandardScaler):
+                fresh = StandardScaler(**step.get_params(deep=False))
+            else:
+                rebuilt.append((step_name, step))
+                data = step.transform(data)
+                continue
+            fresh.fit(data)
+            data = fresh.transform(data)
+            rebuilt.append((step_name, fresh))
+        model_bundle["models"][name] = Pipeline([*rebuilt, final_step])
+
+
 def load_model_bundle(slug: str) -> dict:
-    return joblib.load(bundle_path(slug) / "bundle.joblib")
+    bundle = joblib.load(bundle_path(slug) / "bundle.joblib")
+    _refresh_preprocessing(bundle)
+    return bundle
 
 
 def bundle_exists(slug: str) -> bool:
